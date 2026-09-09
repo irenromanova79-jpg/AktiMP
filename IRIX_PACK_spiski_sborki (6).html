@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IRIX PACK — списки сборки Ozon в Excel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --accent:#00E38A; --accent-2:#00B874; --ink:#0D1B16; --panel:#151A19;
+  --panel-2:#1C2422; --line:#26332E; --text:#EDF2EF; --muted:#8FA79C; --warn:#FFC24B; --bad:#FF6B6B;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:var(--text);font-family:Manrope,"Segoe UI",Arial,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+header{display:flex;align-items:center;gap:14px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+header svg{width:26px;height:29px;flex:none}
+.brand{font-weight:800;letter-spacing:.02em;font-size:19px}
+.brand span{color:var(--accent)}
+.tag{color:var(--muted);font-size:13px;margin-left:auto;text-align:right}
+h1{font-size:26px;font-weight:800;margin:26px 0 6px}
+.lead{color:var(--muted);max-width:62ch;margin:0 0 22px}
+.zones{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.zones{grid-template-columns:1fr}}
+.drop{border:1.5px dashed var(--line);border-radius:14px;padding:26px 20px;text-align:center;background:var(--panel);transition:border-color .15s,background .15s;cursor:pointer}
+.drop .ch{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--panel-2)}
+.drop b{display:block;font-size:17px;margin-bottom:4px}
+.drop small{color:var(--muted)}
+.btn{appearance:none;border:0;border-radius:10px;padding:11px 18px;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:#06231A}
+.btn:hover{background:var(--accent-2);color:#fff}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.btn.ghost.on{border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:24px 0 14px}
+.bar .sep{flex:1}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin:20px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:12px;padding:14px 16px}
+.card .w{font-weight:600}
+.card .m{color:var(--muted);font-size:13px;margin-top:2px}
+.card .n{font-size:26px;font-weight:800;margin-top:8px}
+.card.bad{border-left-color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--panel);border-radius:12px;overflow:hidden}
+th{background:var(--panel-2);text-align:left;font-weight:600;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);position:sticky;top:0}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;white-space:nowrap}
+tr.sub td{background:var(--panel-2);font-weight:700}
+.tbl{max-height:60vh;overflow:auto;border-radius:12px;border:1px solid var(--line)}
+.msg{margin:14px 0;padding:12px 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:14px}
+.msg.warn{border-color:var(--warn);color:var(--warn)}
+.msg.err{border-color:var(--bad);color:var(--bad)}
+.pane{margin-top:34px;border-top:1px solid var(--line);padding-top:22px}
+.pane h2{font-size:19px;font-weight:800;margin:0 0 6px}
+.pane .lead{margin-bottom:14px}
+textarea{width:100%;min-height:150px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:13.5px;line-height:1.55;resize:vertical}
+textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+input.set{width:60px;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:3px 6px;font:inherit;font-size:13.5px;text-align:center}
+input.set:focus{outline:2px solid var(--accent);outline-offset:1px}
+.hide{display:none}
+footer{margin-top:40px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <svg viewBox="0 0 140 155" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00E38A"/><stop offset=".55" stop-color="#00C97C"/><stop offset="1" stop-color="#00A868"/></linearGradient></defs><path d="M15,0 L140,0 L77.5,63 Z" fill="url(#g)"/><path d="M0,15 L140,155 L96,155 L47.5,107.5 L0,155 Z" fill="url(#g)"/></svg>
+  <div class="brand">IRIX <span>PACK</span></div>
+  <div class="tag">умные приложения для бизнеса<br>Irina Romanova</div>
+</header>
+
+<h1>Списки сборки и листы подбора — в Excel</h1>
+<p class="lead">Загрузите PDF из кабинета: список сборки Ozon или лист подбора Wildberries. Кладите файл в зону своей площадки — она и определит канал. Приложение соберёт количества по артикулам и выдаст акты в формате для загрузки в скрипт разноски, по одному на дату и площадку. У листа подбора одна строка — одно задание, задания складываются по артикулу.</p>
+
+<div class="zones">
+  <div class="drop" id="dropOz">
+    <span class="ch">Ozon</span>
+    <b>Список сборки</b>
+    <small>assembly list из кабинета · PDF</small>
+    <input type="file" id="fileOz" accept="application/pdf" multiple hidden>
+  </div>
+  <div class="drop" id="dropWb">
+    <span class="ch">Wildberries</span>
+    <b>Лист подбора</b>
+    <small>WB-GI-… из кабинета · PDF</small>
+    <input type="file" id="fileWb" accept="application/pdf" multiple hidden>
+  </div>
+</div>
+
+<div id="log"></div>
+
+<div id="result" class="hide">
+  <div class="cards" id="cards"></div>
+  <div class="bar">
+    <button class="btn ghost on" id="viewPost">Для разноски</button>
+    <button class="btn ghost" id="viewSum">Сводка по артикулам</button>
+    <button class="btn ghost" id="viewDetail">Детально</button>
+    <span class="sep"></span>
+    <button class="btn" id="act">Скачать акты для разноски</button>
+    <button class="btn ghost" id="copy">Копировать столбцы</button>
+    <button class="btn ghost" id="xlsx">Скачать Excel</button>
+    <button class="btn ghost" id="reset">Очистить</button>
+  </div>
+  <div class="tbl"><table id="tbl"></table></div>
+
+  <section class="pane">
+    <h2>Столбец под вашу таблицу остатков</h2>
+    <p class="lead">Вставьте сюда столбец «Артикул продавца (текущ)» — приложение вернёт количества в том же порядке строк, включая пустые. Останется скопировать и вставить в колонку нужной даты.</p>
+    <textarea id="artsIn" spellcheck="false" placeholder="форио шок/беж&#10;форио шок/беж 4шт&#10;стеллаж-6П-30"></textarea>
+    <div class="bar">
+      <button class="btn" id="buildCol">Построить столбец</button>
+      <button class="btn ghost" id="copyCol">Копировать столбец</button>
+    </div>
+    <div id="colOut"></div>
+    <textarea id="colRes" spellcheck="false" readonly class="hide"></textarea>
+  </section>
+</div>
+
+<footer>IRIX — код. данные. смысл. результат.</footer>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const $ = s => document.querySelector(s);
+const log = $("#log");
+let BLOCKS = [];           // {date, declared, warehouse, delivery, rows:[{n,name,art,qty}]}
+let view = "post";
+
+function say(text, cls){
+  const d = document.createElement("div");
+  d.className = "msg" + (cls ? " " + cls : "");
+  d.textContent = text;
+  log.appendChild(d);
+}
+function clearLog(){ log.innerHTML = ""; }
+
+/* ---------- разбор PDF ---------- */
+
+const NUM = /^\d+(?:[.,]\d+)?$/;
+
+// строки страницы: слова с близкой координатой y — одна строка (в PDF y растёт снизу вверх)
+function groupLines(items){
+  const sorted = items.slice().sort((a,b) => b.y - a.y || a.x - b.x);
+  const lines = [];
+  for (const it of sorted){
+    const last = lines[lines.length-1];
+    if (last && Math.abs(last.y - it.y) <= 2.5){ last.items.push(it); }
+    else lines.push({ y: it.y, items: [it] });
+  }
+  lines.forEach(l => {
+    l.items.sort((a,b) => a.x - b.x);
+    l.text = l.items.map(i => i.str).join(" ").replace(/\s+/g," ").trim();
+  });
+  return lines;
+}
+
+// Два вида документов:
+//   Ozon, список сборки — «№ Фото Товар Артикул Кол-во», количество в строке
+//   WB, лист подбора    — «№ задания Фото Бренд Наименование Размер Цвет Артикул продавца Стикер»,
+//                          одна строка = одно задание, количество считается строками
+// Границы колонок берём по левому краю следующей: длинные названия заходят
+// далеко вправо, и деление «по середине» рвало бы их пополам.
+function columnsFrom(line){
+  // заголовок может прийти одним куском («Артикул продавца», «№ задания»),
+  // поэтому сравниваем по началу строки, а не целиком
+  const pick = t => {
+    const k = t.toLowerCase();
+    const i = line.items.find(i => i.str.trim().toLowerCase().indexOf(k) === 0);
+    return i ? i.x : null;
+  };
+  const has = t => pick(t) != null;
+  let spec = null;
+
+  if (has("Стикер") && has("Артикул")){
+    spec = { mode: "wb", cols: [
+      { key:"n",    x: pick("№") },
+      { key:"skip", x: pick("Бренд") },
+      { key:"name", x: pick("Наименование") },
+      { key:"skip", x: pick("Размер") },
+      { key:"skip", x: pick("Цвет") },
+      { key:"art",  x: pick("Артикул") },
+      { key:"skip", x: pick("Стикер") }
+    ]};
+  } else if (has("Артикул") && has("Кол-во")){
+    spec = { mode: "ozon", cols: [
+      { key:"n",    x: pick("№") },
+      { key:"name", x: pick("Товар") },
+      { key:"art",  x: pick("Артикул") },
+      { key:"qty",  x: pick("Кол-во") }
+    ]};
+  }
+  if (!spec) return null;
+
+  const cols = spec.cols.filter(c => c.x != null).sort((a,b) => a.x - b.x);
+  if (!cols.some(c => c.key === "art") || !cols.some(c => c.key === "name")) return null;
+  cols.forEach((c,i) => c.left = i === 0 ? -Infinity : c.x - 14);
+  return { mode: spec.mode, cols: cols };
+}
+
+// иногда PDF склеивает соседние ячейки в один кусок текста («светлый дуб форио свдуб/син»).
+// Тогда режем его по границе колонки, ориентируясь на ширину куска и ближайший пробел.
+function splitByColumns(it, spec){
+  const out = [];
+  let str = it.str, x = it.x;
+  const cw = it.w && str.length ? it.w / str.length : 0;
+  if (cw){
+    for (const c of spec.cols){
+      if (c.left <= x || c.left >= x + cw * str.length) continue;
+      const idx = Math.round((c.left - x) / cw);
+      const before = str.lastIndexOf(" ", idx), after = str.indexOf(" ", idx);
+      const cut = before > 0 && (after < 0 || idx - before <= after - idx) ? before : after;
+      if (cut > 0){
+        out.push({ str: str.slice(0, cut).trim(), x: x });
+        x = x + cw * (cut + 1);
+        str = str.slice(cut + 1);
+      }
+    }
+  }
+  out.push({ str: str, x: x });
+  return out.filter(o => o.str);
+}
+
+function cellOf(x, spec){
+  let key = spec.cols[0].key;
+  for (const c of spec.cols) if (x >= c.left) key = c.key;
+  return key;
+}
+
+// склеиваем перенесённые строки ячеек с их строкой-номером (по близости по вертикали)
+function flush(pending){
+  const groups = [];
+  for (const p of pending){
+    let g = groups.find(g => g.block === p.block);
+    if (!g){ g = { block: p.block, lines: [] }; groups.push(g); }
+    g.lines.push(p);
+  }
+  for (const { block, lines } of groups){
+    const anchors = lines.filter(l => /^\d+$/.test(l.c.n) && (l.mode === "wb" || l.c.name));
+    if (!anchors.length) continue;
+    const bucket = new Map(anchors.map(a => [a, []]));
+    for (const l of lines){
+      let best = anchors[0];
+      for (const a of anchors) if (Math.abs(a.y - l.y) < Math.abs(best.y - l.y)) best = a;
+      bucket.get(best).push(l);
+    }
+    for (const a of anchors){
+      const ls = bucket.get(a).sort((x,y) => y.y - x.y);   // сверху вниз
+      // в листе подбора артикул переносится посреди слова («…венге/с» + «ершен»),
+      // в списке сборки Ozon — по пробелу («форио свдуб/беж» + «4шт»)
+      const glue = a.mode === "wb" ? "" : " ";
+      const join = (k, sep) => ls.map(l => l.c[k]).filter(Boolean).join(sep === undefined ? " " : sep).replace(/\s+/g," ").trim();
+      let qty = null;
+      if (a.mode === "wb"){
+        qty = 1;                                   // одно задание — одна коробка
+      } else {
+        for (const l of ls){ const m = l.c.qty.match(/\d+(?:[.,]\d+)?/); if (m && qty == null) qty = parseFloat(m[0].replace(",",".")); }
+      }
+      const art = join("art", glue);
+      if (!art) continue;
+      block.rows.push({ n:+a.c.n, name: join("name"), art: art, qty: qty || 0 });
+    }
+  }
+  pending.length = 0;
+}
+
+async function parsePdf(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const blocks = [];
+  let cur = null, cols = null;
+  const pending = [];
+
+  for (let p = 1; p <= pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    const items = tc.items
+      .filter(i => i.str && i.str.trim())
+      .map(i => ({ str: i.str.trim(), x: i.transform[4], y: i.transform[5], w: i.width }));
+    const lines = groupLines(items);
+
+    let inTable = false;
+    for (const line of lines){
+      const t = line.text;
+
+      const mDate = t.match(/Дата:\s*([\d.]+)/);
+      if (mDate){
+        flush(pending);
+        const mCnt = t.match(/количество\s+(?:отправлений|товаров)\s*:?\s*(\d+)/i);
+        cur = { date: mDate[1], declared: mCnt ? +mCnt[1] : null, warehouse: "", delivery: "", doc: "", rows: [] };
+        blocks.push(cur); inTable = false;
+        continue;
+      }
+      if (!cur) continue;
+
+      const mCnt = t.match(/количество\s+(?:отправлений|товаров)\s*:?\s*(\d+)/i);
+      if (mCnt && cur.declared == null){ cur.declared = +mCnt[1]; }
+      if (/wbpartners|лист\s+подбора/i.test(t) && !cur.delivery){ cur.delivery = "Wildberries"; }
+      const mDoc = t.match(/Лист подбора\s+(\S+)/i);
+      if (mDoc && !cur.doc){ cur.doc = mDoc[1]; }
+      if (/^Склад:/.test(t)){ cur.warehouse = t.replace(/^Склад:\s*/,""); continue; }
+      if (/^Служба доставки:/.test(t)){ cur.delivery = t.replace(/^Служба доставки:\s*/,""); continue; }
+
+      const c = columnsFrom(line);
+      if (c){ cols = c; inTable = true; if (c.mode === "wb" && !cur.delivery) cur.delivery = "Wildberries"; continue; }
+
+      if (/^Проверьте список/.test(t)) continue;
+      if (!inTable || !cols) continue;
+
+      const cell = { n:[], name:[], art:[], qty:[], skip:[] };
+      for (const it of line.items){
+        for (const piece of splitByColumns(it, cols)){
+          let k = cellOf(piece.x, cols);
+          if (k === "qty" && !NUM.test(piece.str)) k = "art";   // «4шт» — это артикул, а не количество
+          cell[k].push(piece.str);
+        }
+      }
+      pending.push({ block: cur, y: line.y, mode: cols.mode, c: {
+        n: cell.n.join(" ").trim(), name: cell.name.join(" ").trim(),
+        art: cell.art.join(" ").trim(), qty: cell.qty.join(" ").trim() } });
+    }
+    flush(pending);
+  }
+  mergeCutArticles(blocks);
+  return mergePages(blocks).filter(b => b.rows.length);
+}
+
+// шапка документа печатается на каждой странице — это один документ, а не несколько
+function mergePages(blocks){
+  const out = [];
+  for (const b of blocks){
+    const prev = out[out.length-1];
+    const same = prev && prev.date === b.date && prev.warehouse === b.warehouse &&
+                 prev.delivery === b.delivery && prev.declared === b.declared && prev.doc === b.doc;
+    if (same) prev.rows = prev.rows.concat(b.rows); else out.push(b);
+  }
+  return out;
+}
+
+// если из-за склеенных ячеек артикул отрезало по пробелу («свдуб/син» вместо
+// «форио свдуб/син»), обрывок оказывается хвостом полного артикула — склеиваем обратно
+function mergeCutArticles(blocks){
+  const all = [];
+  blocks.forEach(b => b.rows.forEach(r => { if (!all.includes(r.art)) all.push(r.art); }));
+  const fix = {};
+  for (const short of all){
+    const full = all.find(a => a !== short && a.toLowerCase().endsWith(" " + short.toLowerCase()));
+    if (full) fix[short] = full;
+  }
+  blocks.forEach(b => b.rows.forEach(r => { if (fix[r.art]) r.art = fix[r.art]; }));
+}
+
+/* ---------- вывод ---------- */
+
+let COLUMN = null;   // столбец под строки таблицы остатков
+
+const keyOf = b => b.date + "|" + b.delivery + "|" + b.warehouse + "|" + b.doc + "|" +
+                   b.rows.map(r => r.art + "#" + r.qty).join(";");
+
+// размер комплекта: «4шт» в артикуле, иначе «2 шт» в названии товара, иначе штучный товар
+const SETS = {};   // ручные поправки размера комплекта по артикулу
+
+// размер комплекта: ручная поправка, иначе «4шт» в артикуле, иначе «2 шт» в названии товара
+function setSize(r){
+  if (SETS[r.art]) return SETS[r.art];
+  const a = r.art.match(/(\d+)\s*шт/i);
+  if (a) return +a[1];
+  const n = r.name.match(/(\d+)\s*шт/i);
+  if (n) return +n[1];
+  return 1;
+}
+
+// канал так, как он подписан в таблице остатков
+function channel(b){
+  const d = (b.delivery || "").toLowerCase();
+  if (d.includes("ozon") || d.includes("озон")) return "оз";
+  if (d.includes("wildberries") || d.includes("вб") || d.includes("рвб")) return "вб";
+  return b.delivery || "—";
+}
+
+// нормализация артикула: регистр, пробелы, дефисы и слэши не мешают сопоставлению
+const norm = s => (s || "").toLowerCase().replace(/ё/g,"е").replace(/[^a-zа-я0-9]/gi,"");
+
+function columnsList(){
+  const seen = [];
+  for (const b of BLOCKS){
+    const k = b.date + " " + channel(b);
+    if (!seen.includes(k)) seen.push(k);
+  }
+  return seen;
+}
+
+function summary(){
+  const map = new Map();
+  for (const b of BLOCKS){
+    const k = b.date + " " + channel(b);
+    for (const r of b.rows){
+      let cur = map.get(r.art);
+      if (!cur){ cur = { art: r.art, name: r.name, set: setSize(r), ship: 0, pcs: 0, per: {}, box: {} }; map.set(r.art, cur); }
+      cur.ship += r.qty;
+      cur.pcs  += r.qty * cur.set;
+      cur.per[k] = (cur.per[k] || 0) + r.qty * cur.set;
+      cur.box[k] = (cur.box[k] || 0) + r.qty;
+    }
+  }
+  return [...map.values()].sort((a,b) => a.art.localeCompare(b.art,"ru"));
+}
+
+function tsv(){
+  const cols = columnsList();
+  return summary().map(r => [r.art, ...cols.map(k => r.per[k] || "")].join("\t")).join("\n");
+}
+
+function render(){
+  const sm = summary(), cols = columnsList();
+  const totalShip = sm.reduce((s,r) => s + r.ship, 0);
+  const totalPcs  = sm.reduce((s,r) => s + r.pcs, 0);
+
+  const cards = $("#cards"); cards.innerHTML = "";
+  for (const b of BLOCKS){
+    const fact = b.rows.reduce((s,r) => s + r.qty, 0);
+    const pcs  = b.rows.reduce((s,r) => s + r.qty * setSize(r), 0);
+    const bad = b.declared != null && b.declared !== fact;
+    cards.insertAdjacentHTML("beforeend",
+      `<div class="card${bad ? " bad" : ""}">
+         <div class="w">${b.warehouse || "Склад не указан"}</div>
+         <div class="m">${b.date} · ${channel(b)} · позиций: ${b.rows.length}</div>
+         <div class="n">${pcs} шт</div>
+         <div class="m">отправлений: ${fact}${bad ? " · в шапке PDF указано " + b.declared : ""}</div>
+       </div>`);
+  }
+  cards.insertAdjacentHTML("beforeend",
+    `<div class="card"><div class="w">К списанию с остатков</div><div class="m">артикулов: ${sm.length}</div>
+     <div class="n">${totalPcs} шт</div><div class="m">отправлений: ${totalShip}</div></div>`);
+
+  const tbl = $("#tbl");
+  let h = "";
+  if (view === "detail"){
+    h = "<thead><tr><th>Дата</th><th>Склад</th><th>Канал</th><th>№</th><th>Товар</th><th>Артикул</th><th class='num'>Отправлений</th><th class='num'>Комплект</th><th class='num'>Штук</th></tr></thead><tbody>";
+    for (const b of BLOCKS){
+      for (const r of b.rows){
+        const s = setSize(r);
+        h += `<tr><td>${b.date}</td><td>${b.warehouse}</td><td>${channel(b)}</td><td>${r.n}</td><td>${r.name}</td><td>${r.art}</td><td class="num">${r.qty}</td><td class="num">${s}</td><td class="num">${r.qty*s}</td></tr>`;
+      }
+      h += `<tr class="sub"><td colspan="6">Итого по складу «${b.warehouse}»</td><td class="num">${b.rows.reduce((s,r)=>s+r.qty,0)}</td><td></td><td class="num">${b.rows.reduce((s,r)=>s+r.qty*setSize(r),0)}</td></tr>`;
+    }
+  } else if (view === "sum"){
+    h = "<thead><tr><th>Артикул</th><th>Товар</th><th class='num'>Отправлений</th><th class='num'>Комплект, шт<br><span style='font-weight:400'>можно исправить</span></th><th class='num'>Штук</th></tr></thead><tbody>";
+    for (const r of sm) h += `<tr><td>${r.art}</td><td>${r.name}</td><td class="num">${r.ship}</td><td class="num"><input class="set" type="number" min="1" step="1" value="${r.set}" data-art="${r.art.replace(/"/g,"&quot;")}"></td><td class="num">${r.pcs}</td></tr>`;
+    h += `<tr class="sub"><td colspan="2">Всего</td><td class="num">${totalShip}</td><td></td><td class="num">${totalPcs}</td></tr>`;
+  } else {
+    h = "<thead><tr><th>Артикул продавца</th>" + cols.map(k => `<th class='num'>${k}</th>`).join("") + "</tr></thead><tbody>";
+    for (const r of sm) h += `<tr><td>${r.art}</td>` + cols.map(k => `<td class="num">${r.per[k] || ""}</td>`).join("") + "</tr>";
+    h += `<tr class="sub"><td>Всего</td>` + cols.map(k => `<td class="num">${sm.reduce((a,r)=>a+(r.per[k]||0),0)}</td>`).join("") + "</tr>";
+  }
+  tbl.innerHTML = h + "</tbody>";
+  tbl.querySelectorAll("input.set").forEach(inp => {
+    inp.onchange = () => {
+      const v = parseInt(inp.value, 10);
+      if (v > 0) SETS[inp.dataset.art] = v; else delete SETS[inp.dataset.art];
+      render();
+      if (COLUMN) buildColumn();
+    };
+  });
+  $("#result").classList.remove("hide");
+}
+
+/* ---------- столбец под таблицу остатков ---------- */
+
+
+function buildColumn(){
+  const raw = $("#artsIn").value.replace(/\r/g,"").split("\n");
+  const out = $("#colOut"); out.innerHTML = "";
+  if (!raw.some(l => l.trim())){
+    out.innerHTML = `<div class="msg warn">Вставьте столбец артикулов из таблицы остатков — по нему строится колонка количеств.</div>`;
+    return;
+  }
+  const sm = summary(), cols = columnsList();
+  const byNorm = new Map(sm.map(r => [norm(r.art), r]));
+  const used = new Set();
+  const lines = raw.map(l => {
+    const r = byNorm.get(norm(l));
+    if (!r) return cols.map(() => "");
+    used.add(r.art);
+    return cols.map(k => r.per[k] || "");
+  });
+  COLUMN = { header: cols, arts: raw, lines, text: lines.map(v => v.join("\t")).join("\n") };
+  const res = $("#colRes");
+  res.value = COLUMN.text; res.classList.remove("hide");
+
+  const missed = sm.filter(r => !used.has(r.art));
+  const matched = raw.filter(l => l.trim() && byNorm.has(norm(l))).length;
+  out.insertAdjacentHTML("beforeend",
+    `<div class="msg">Строк в вашем списке: ${raw.length} · артикулов из PDF нашлось: ${matched} · колонок: ${cols.join(", ")}</div>`);
+  if (missed.length)
+    out.insertAdjacentHTML("beforeend",
+      `<div class="msg warn">Не нашлись в вашем списке (эти отгрузки в столбец не попадут): ${missed.map(r => r.art + " — " + r.pcs + " шт").join("; ")}</div>`);
+}
+
+/* ---------- акт для скрипта «Отгрузки» ---------- */
+// формат под parseValues_: строка «Дата:», строка с количеством отправлений,
+// строка с названием площадки, затем заголовки «Артикул | Кол-во» и коробки.
+// Штуки скрипт считает сам из наименования в таблице остатков — здесь только коробки.
+
+function toActFiles(){
+  const sm = summary();
+  let n = 0;
+  for (const key of columnsList()){
+    const [date, chan] = key.split(" ");
+    const rows = sm.filter(r => r.box[key]).map(r => [r.art, r.box[key]]);
+    if (!rows.length) continue;
+    const boxes = rows.reduce((s,r) => s + r[1], 0);
+    const platform = chan === "вб" ? "Wildberries" : "Ozon";
+    const aoa = [
+      ["Дата:", date],
+      ["Количество отправлений: " + boxes],
+      ["Служба доставки: " + platform],
+      ["", ""],
+      ["Артикул", "Кол-во"],
+      ...rows
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{wch:28},{wch:10}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Акт");
+    // браузер режет пачку одновременных скачиваний — разносим по времени
+    setTimeout(() => XLSX.writeFile(wb, `Акт_${date.replace(/\./g,"-")}_${chan}.xlsx`), n * 500);
+    n++;
+  }
+  return n;
+}
+
+/* ---------- Excel ---------- */
+
+function toXlsx(){
+  const sm = summary(), cols = columnsList();
+
+  const aoaPost = [["Артикул продавца", ...cols]];
+  sm.forEach(r => aoaPost.push([r.art, ...cols.map(k => r.per[k] || "")]));
+  const wsPost = XLSX.utils.aoa_to_sheet(aoaPost);
+  wsPost["!cols"] = [{wch:28}, ...cols.map(() => ({wch:14}))];
+
+  const aoaSum = [["Артикул","Товар","Отправлений","Комплект, шт","Штук"]];
+  sm.forEach(r => aoaSum.push([r.art, r.name, r.ship, r.set, r.pcs]));
+  aoaSum.push(["Всего","", sm.reduce((a,r)=>a+r.ship,0), "", sm.reduce((a,r)=>a+r.pcs,0)]);
+  const wsSum = XLSX.utils.aoa_to_sheet(aoaSum);
+  wsSum["!cols"] = [{wch:24},{wch:62},{wch:13},{wch:13},{wch:10}];
+
+  const aoa = [["Дата","Склад","Канал","№","Товар","Артикул","Отправлений","Комплект, шт","Штук"]];
+  let tShip = 0, tPcs = 0;
+  for (const b of BLOCKS){
+    for (const r of b.rows){
+      const s = setSize(r);
+      aoa.push([b.date, b.warehouse, channel(b), r.n, r.name, r.art, r.qty, s, r.qty*s]);
+    }
+    const ship = b.rows.reduce((a,r)=>a+r.qty,0);
+    const pcs  = b.rows.reduce((a,r)=>a+r.qty*setSize(r),0);
+    tShip += ship; tPcs += pcs;
+    aoa.push(["","","","",`Итого по складу «${b.warehouse}»`,"", ship, "", pcs]);
+  }
+  aoa.push(["","","","","ВСЕГО","", tShip, "", tPcs]);
+  const wsAll = XLSX.utils.aoa_to_sheet(aoa);
+  wsAll["!cols"] = [{wch:12},{wch:20},{wch:10},{wch:6},{wch:62},{wch:22},{wch:13},{wch:13},{wch:10}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsPost, "Для разноски");
+  if (COLUMN){
+    const aoaCol = [["Артикул продавца", ...COLUMN.header]];
+    COLUMN.arts.forEach((a,i) => aoaCol.push([a, ...COLUMN.lines[i]]));
+    const wsCol = XLSX.utils.aoa_to_sheet(aoaCol);
+    wsCol["!cols"] = [{wch:28}, ...COLUMN.header.map(() => ({wch:14}))];
+    XLSX.utils.book_append_sheet(wb, wsCol, "Столбец в порядке строк");
+  }
+  XLSX.utils.book_append_sheet(wb, wsSum, "Сводка по артикулам");
+  XLSX.utils.book_append_sheet(wb, wsAll, "Список сборки");
+  const d = (BLOCKS[0] && BLOCKS[0].date || "").replace(/\./g,"-");
+  XLSX.writeFile(wb, `Список_сборки_Ozon_${d || "выгрузка"}.xlsx`);
+}
+
+/* ---------- события ---------- */
+
+async function handle(files, chan){
+  clearLog();
+  const seen = new Set(BLOCKS.map(keyOf));
+  const wanted = chan === "вб" ? "Wildberries" : "Ozon";
+  let added = 0, dup = 0, wrong = 0;
+  for (const f of files){
+    if (!/\.pdf$/i.test(f.name)){
+      const img = /\.(jpe?g|png|heic|webp)$/i.test(f.name);
+      say(img ? `«${f.name}» — это фото. Приложение читает текст внутри PDF, а на снимке его нет: скачайте документ из кабинета кнопкой «Печать» или «Скачать PDF».`
+              : `«${f.name}» — не PDF, файл пропущен.`, "warn");
+      continue;
+    }
+    try{
+      const blocks = await parsePdf(f);
+      if (!blocks.length){ say(`В «${f.name}» не нашлись таблицы списка сборки. Проверьте, что PDF выгружен из Ozon, а не отсканирован.`, "err"); continue; }
+      for (const b of blocks){
+        // площадку задаёт зона загрузки, а не текст внутри файла
+        const said = channel(b);
+        if (said !== "—" && said !== chan) wrong++;
+        b.delivery = wanted;
+        const k = keyOf(b);
+        if (seen.has(k)){ dup++; continue; }
+        seen.add(k); BLOCKS.push(b); added++;
+      }
+    }catch(e){
+      say(`Не удалось прочитать «${f.name}»: ${e.message}`, "err");
+    }
+  }
+  if (wrong) say(`Файл загружен в зону «${wanted}», а внутри указана другая площадка. Разнесётся как ${wanted} — проверьте, тот ли документ.`, "warn");
+  if (dup) say(`Повторяющихся списков пропущено: ${dup}.`);
+  if (added) render();
+}
+
+function zone(dropId, inputId, chan){
+  const drop = $(dropId), input = $(inputId);
+  drop.addEventListener("click", () => input.click());
+  input.addEventListener("change", e => { handle([...e.target.files], chan); input.value = ""; });
+  ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => handle([...e.dataTransfer.files], chan));
+}
+zone("#dropOz", "#fileOz", "оз");
+zone("#dropWb", "#fileWb", "вб");
+
+function setView(v, btn){
+  view = v;
+  ["#viewPost","#viewSum","#viewDetail"].forEach(s => $(s).classList.remove("on"));
+  btn.classList.add("on");
+  render();
+}
+$("#viewPost").onclick   = e => setView("post", e.currentTarget);
+$("#viewSum").onclick    = e => setView("sum", e.currentTarget);
+$("#viewDetail").onclick = e => setView("detail", e.currentTarget);
+$("#copy").onclick = async e => {
+  const btn = e.currentTarget, old = btn.textContent;
+  try{ await navigator.clipboard.writeText(tsv()); btn.textContent = "Скопировано"; }
+  catch(err){ btn.textContent = "Буфер недоступен"; }
+  setTimeout(() => btn.textContent = old, 1800);
+};
+$("#xlsx").onclick = toXlsx;
+$("#act").onclick = () => {
+  const n = toActFiles();
+  say(n ? `Актов подготовлено: ${n}. Количество в них — коробки: штуки считает скрипт разноски из наименования в таблице.`
+        : "Нечего выгружать — сначала загрузите PDF.", n ? "" : "warn");
+};
+$("#buildCol").onclick = buildColumn;
+$("#copyCol").onclick = async e => {
+  const btn = e.currentTarget, old = btn.textContent;
+  if (!COLUMN) buildColumn();
+  if (!COLUMN) return;
+  try{ await navigator.clipboard.writeText(COLUMN.text); btn.textContent = "Скопировано"; }
+  catch(err){ $("#colRes").select(); btn.textContent = "Скопируйте вручную"; }
+  setTimeout(() => btn.textContent = old, 1800);
+};
+$("#reset").onclick = () => { BLOCKS = []; COLUMN = null; clearLog(); $("#colOut").innerHTML = ""; $("#colRes").classList.add("hide"); $("#result").classList.add("hide"); };
+</script>
+</body>
+</html>
