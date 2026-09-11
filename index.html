@@ -259,31 +259,84 @@ function parseWB(pages, fname){
   };
 }
 
-/* ---------- Ozon: «Список сборки» / assembly list ---------- */
+/* ---------- Ozon: «Список сборки» (assembly list) ---------- */
 function parseOZ(pages, fname){
   const out = [];
-  let supply='', date='';
+  let date='', warehouse='';
   const flat = pages.flat();
   flat.forEach(l=>{
     const t = l.items.map(i=>i.s).join(' ');
-    if(!date){ const m=t.match(/(\d{2}\.\d{2}\.\d{4})/); if(m) date=ruDate(m[1]); }
-    if(!supply){ const m=t.match(/(\d{8,}-\d{4}-\d)/); if(m) supply=m[1]; }
+    if(!date){ const m=t.match(/Дата:\s*([\d.]+)/); if(m) date=ruDate(m[1]); }
+    if(!warehouse){ const m=t.match(/Склад:\s*(.+)$/); if(m) warehouse=norm(m[1]); }
   });
-  // Ozon печатает по строке на отправление: артикул + количество в конце строки
-  flat.forEach(l=>{
-    const t = norm(l.items.map(i=>i.s).join(' '));
-    if(/Артикул|Список сборки|Отправлени|Штрихкод|Итого/i.test(t)) return;
-    const m = t.match(/^(.*?)\s+(\d{1,3})\s*(?:шт\.?)?$/i);
-    if(!m) return;
-    const art = norm(m[1]);
-    if(art.length < 3 || /^\d+$/.test(art)) return;
-    out.push({
-      file:fname, channel:'оз', supply, date,
-      task:'', name:art, color:'', art:art, sticker:'',
-      mult:multiplier(art, art), qtyRaw:+m[2]
+
+  // шапка таблицы задаёт границы колонок
+  let cols = null;
+  for(const l of flat){
+    const t = l.items.map(i=>i.s).join(' ');
+    if(/Номер отправления/.test(t) && /Артикул/.test(t)){
+      const find = re => { const it = l.items.find(i=>re.test(i.s)); return it? it.x : null; };
+      cols = { num: find(/^№$/), ship: find(/^Номер$/), photo: find(/^Фото$/),
+               name: find(/^Товар$/), art: find(/^Артикул$/), qty: find(/^Кол-во$/),
+               label: find(/^Этикетка$/) };
+      break;
+    }
+  }
+  if(!cols || cols.num===null || cols.art===null) return {rows:out, date, ok:false};
+
+  const bounds = ['num','ship','photo','name','art','qty','label']
+    .map(k=>({k, x:cols[k]})).filter(o=>o.x!==null);
+  const colOf = x => {
+    let best = bounds[0].k, d = 1e9;
+    bounds.forEach(b=>{ const dd = Math.abs(x-b.x); if(x>=b.x-8 && dd<d){ d=dd; best=b.k; } });
+    return best;
+  };
+  const SERVICE = /Номер отправления|^Дата:|Проверьте список|^Склад:|Служба доставки/i;
+
+  /* В листе Ozon текст ячейки может стоять выше строки с номером отправления
+     (первый кусок артикула печатается над ней, хвост — под ней). Поэтому строки
+     не «текут» сверху вниз, а привязываются к ближайшему по вертикали отправлению. */
+  pages.forEach(lines=>{
+    const recs = [];
+    lines.forEach(l=>{
+      const f = l.items[0];
+      if(/^\d{1,4}$/.test(f.s.trim()) && Math.abs(f.x - cols.num) < 10){
+        recs.push({y:l.y, rec:{num:f.s.trim(), ship:'', name:'', artLines:[], qty:'', label:''}});
+      }
     });
+    if(!recs.length) return;
+    lines.forEach(l=>{
+      const t = l.items.map(i=>i.s).join(' ');
+      if(SERVICE.test(t.trim())) return;
+      let owner = recs[0], d = 1e9;
+      recs.forEach(r=>{ const dd = Math.abs(l.y - r.y); if(dd < d){ d = dd; owner = r; } });
+      const bucket = {};
+      l.items.forEach(it=>{
+        const k = colOf(it.x);
+        if(k==='num') return;                       // номер строки уже записан
+        bucket[k] = (bucket[k] ? bucket[k] + ' ' : '') + it.s.trim();
+      });
+      Object.keys(bucket).forEach(k=>{
+        if(k==='art'){ owner.rec.artLines.push(bucket[k]); }
+        else if(k!=='photo'){ owner.rec[k] = (owner.rec[k] ? owner.rec[k] + ' ' : '') + bucket[k]; }
+      });
+    });
+    recs.forEach(r=> out.push(r.rec));
   });
-  return {ok:out.length>0, supply, date, rows:out};
+
+  return {
+    ok: out.length>0, date, supply: warehouse,
+    rows: out.filter(r=>r.artLines.length).map(r=>{
+      const art = joinArt(r.artLines);
+      return {
+        file:fname, channel:'оз', supply:warehouse, date,
+        task:norm(r.ship), name:norm(r.name), color:'',
+        art, sticker:digits(r.label),
+        qtyRaw: Math.max(1, parseInt(digits(r.qty)||'1', 10)),
+        mult: multiplier(r.name, art)
+      };
+    })
+  };
 }
 
 /* ---------- обработка файла ---------- */
