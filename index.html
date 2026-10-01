@@ -259,30 +259,34 @@ function parseWB(pages, fname){
   };
 }
 
-/* ---------- Ozon: «Список сборки» (assembly list) ---------- */
+/* ---------- Ozon: «Список сборки» (assembly list) ----------
+   Два варианта шапки:
+   старый — «№ | Номер отправления | Фото | Товар | Артикул | Кол-во | Этикетка»
+   новый (с 10.2026) — «№ | Фото | Товар | Артикул | Кол-во», без номера отправления */
 function parseOZ(pages, fname){
   const out = [];
-  let date='', warehouse='';
+  let date='', warehouse='', declared=null;
   const flat = pages.flat();
   flat.forEach(l=>{
     const t = l.items.map(i=>i.s).join(' ');
     if(!date){ const m=t.match(/Дата:\s*([\d.]+)/); if(m) date=ruDate(m[1]); }
     if(!warehouse){ const m=t.match(/Склад:\s*(.+)$/); if(m) warehouse=norm(m[1]); }
+    if(declared===null){ const m=t.match(/Количество отправлений:\s*(\d+)/i); if(m) declared=+m[1]; }
   });
 
   // шапка таблицы задаёт границы колонок
   let cols = null;
   for(const l of flat){
     const t = l.items.map(i=>i.s).join(' ');
-    if(/Номер отправления/.test(t) && /Артикул/.test(t)){
-      const find = re => { const it = l.items.find(i=>re.test(i.s)); return it? it.x : null; };
-      cols = { num: find(/^№$/), ship: find(/^Номер$/), photo: find(/^Фото$/),
+    if(/Артикул/.test(t) && (/Номер отправления/.test(t) || /Кол-во/.test(t)) && /№/.test(t)){
+      const find = re => { const it = l.items.find(i=>re.test(i.s.trim())); return it? it.x : null; };
+      cols = { num: find(/^№$/), ship: find(/^Номер/), photo: find(/^Фото$/),
                name: find(/^Товар$/), art: find(/^Артикул$/), qty: find(/^Кол-во$/),
                label: find(/^Этикетка$/) };
       break;
     }
   }
-  if(!cols || cols.num===null || cols.art===null) return {rows:out, date, ok:false};
+  if(!cols || cols.num===null || cols.art===null) return {rows:out, date, declared, ok:false};
 
   const bounds = ['num','ship','photo','name','art','qty','label']
     .map(k=>({k, x:cols[k]})).filter(o=>o.x!==null);
@@ -291,7 +295,9 @@ function parseOZ(pages, fname){
     bounds.forEach(b=>{ const dd = Math.abs(x-b.x); if(x>=b.x-8 && dd<d){ d=dd; best=b.k; } });
     return best;
   };
-  const SERVICE = /Номер отправления|^Дата:|Проверьте список|^Склад:|Служба доставки/i;
+  // строка шапки «№ Фото Товар Артикул Кол-во» тоже служебная — иначе слова шапки
+  // приклеятся к первому товару
+  const SERVICE = /Номер отправления|^№(\s|$)|^Дата:|Количество отправлений|Проверьте список|^Склад:|Служба доставки/i;
 
   /* В листе Ozon текст ячейки может стоять выше строки с номером отправления
      (первый кусок артикула печатается над ней, хвост — под ней). Поэтому строки
@@ -325,7 +331,7 @@ function parseOZ(pages, fname){
   });
 
   return {
-    ok: out.length>0, date, supply: warehouse,
+    ok: out.length>0, date, supply: warehouse, declared,
     rows: out.filter(r=>r.artLines.length).map(r=>{
       const art = joinArt(r.artLines);
       return {
@@ -522,6 +528,14 @@ async function load(list){
       FILES.push({name, size:f.size, kind, n:fresh.length, ok:res.ok && fresh.length>0});
       if(!res.ok || !res.rows.length){
         warns.push(name + ' — не удалось разобрать как ' + kind + '. Загляните во вкладку «Сырой текст».');
+      }
+      // контроль Ozon: сумма «Кол-во» по строкам должна равняться «Количеству отправлений» в шапке
+      if(kind==='OZON' && res.declared!=null && res.rows.length){
+        const got = res.rows.reduce((s,r)=>s+(+r.qtyRaw||1),0);
+        if(got !== res.declared){
+          warns.push(name + ' — в шапке PDF отправлений ' + res.declared + ', разобрано ' + got +
+            '. Проверьте вкладку «Строки».');
+        }
       }
       if(dups.length){
         warns.push(name + ' — пропущено повторов заданий: ' + dups.length +
